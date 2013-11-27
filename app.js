@@ -32,7 +32,7 @@ function consoleLog(level, msg) {
 }
 
 var server = net.createServer(function(c) {
-	consoleLog(DEBUG_LEVEL.INFO, 'server connected');
+	consoleLog(DEBUG_LEVEL.FINE, 'server connected');
 	var host = null;
 	var protocol = null;
 	var port = null;
@@ -40,14 +40,12 @@ var server = net.createServer(function(c) {
 	c.on('end', function() {
 		if (client!=null)
 			client.end();
-		else
-			consoleLog(DEBUG_LEVEL.WARNING, 'Client is null');
-
+		
 		consoleLog(DEBUG_LEVEL.FINE, 'server disconnected');
 	});
 
 	c.on('data', function(data) {
-		consoleLog(DEBUG_LEVEL.INFO, 'data received');
+		consoleLog(DEBUG_LEVEL.FINEST, 'data received');
 		var d = ''+data;
 		var indexOfSpace = d.indexOf(' ');
 		
@@ -56,11 +54,12 @@ var server = net.createServer(function(c) {
 		// 
 		if (indexOfSpace > 0) {
 			consoleLog(DEBUG_LEVEL.FINE, 'read data '+d);
+			
 			var path = null;
 			var replacedData;
 			var httpCommand = d.substring(0, indexOfSpace+1);
+			
 			if (httpCommand == "GET " || httpCommand == "POST " || httpCommand == "CONNECT ") {
-				consoleLog(DEBUG_LEVEL.INFO, "found get or post");
 				var headers = d.split('\n', 2);
 				var tokens = headers[0].split(" ");
 				var pathIndex = tokens[1].indexOf('/',9);
@@ -70,6 +69,7 @@ var server = net.createServer(function(c) {
 				} else {
 					host = tokens[1];
 				}
+				
 				var protocolIndex = host.indexOf('://');
 				if (protocolIndex > 0) {
 					protocol = host.substring(0,protocolIndex)+'://';
@@ -89,6 +89,7 @@ var server = net.createServer(function(c) {
 					else
 						port = 80;
 				}
+				
 				if (protocol == null)
 					protocol = "http://";
 
