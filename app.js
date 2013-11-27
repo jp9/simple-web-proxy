@@ -2,10 +2,12 @@
  * Copyright Jayaprakash Pasala
  * Created on 11/26/2013
  *
- * A simple proxy server using nodejs. This is a very simple proxy server. Developed this in less
- * than 24 hours. Meant to be a simple reference project or for personal use.
- *
- * Make your changes in user-agent callback to find and replace strings.
+ * A simple proxy server using nodejs. Developed this in less
+ * than 24 hours. Meant to be a reference project for personal use and understanding 
+ * how a proxy works.
+ * 
+ * DONOT USE FOR PRODUCTION
+ * 
  *
  * THIS PROGRAM COMES WITH ABSOLUTELY NO WARRANTY.
  */
@@ -48,12 +50,16 @@ var server = net.createServer(function(c) {
 		consoleLog(DEBUG_LEVEL.INFO, 'data received');
 		var d = ''+data;
 		var indexOfSpace = d.indexOf(' ');
+		
+		//
+		// Extract the host, port, and HTTP Command from the input
+		// 
 		if (indexOfSpace > 0) {
 			consoleLog(DEBUG_LEVEL.FINE, 'read data '+d);
 			var path = null;
-			var replacedData = d;
-			var token = d.substring(0, indexOfSpace+1);
-			if (token == "GET " || token == "POST " || token == "CONNECT ") {
+			var replacedData;
+			var httpCommand = d.substring(0, indexOfSpace+1);
+			if (httpCommand == "GET " || httpCommand == "POST " || httpCommand == "CONNECT ") {
 				consoleLog(DEBUG_LEVEL.INFO, "found get or post");
 				var headers = d.split('\n', 2);
 				var tokens = headers[0].split(" ");
@@ -86,7 +92,7 @@ var server = net.createServer(function(c) {
 				if (protocol == null)
 					protocol = "http://";
 
-				if (token != "CONNECT ") {
+				if (httpCommand != "CONNECT ") {
 					consoleLog(DEBUG_LEVEL.FINE, "host ="+host+" port = "+port+" protocol = "+protocol+" path ="+path);
 					replacedData = tokens[0];
 					replacedData = replacedData + ' '+path+' '+tokens[2]+'\n'+data.slice(headers[0].length+1);
@@ -98,9 +104,14 @@ var server = net.createServer(function(c) {
 
 				consoleLog(DEBUG_LEVEL.FINE, 'writing data '+replacedData);
 
-				client = net.connect({port: port, host: host, allowHalfOpen: true},
-						function() { //'connect' listener
-					if (token != "CONNECT ")
+				client = net.connect({port: port, host: host, allowHalfOpen: true}, function() { //'connect' listener
+					/**
+					 * "CONNECT" is an action command for PROXY server to act on, don't forward this 
+					 * request. Instead open a connection to the specified host
+					 * and send ACK (in form of HTTP return status) back to the requesting client.
+					 * 
+					 */
+					if (httpCommand != "CONNECT ")
 						client.write(replacedData);
 					else
 						c.write("HTTP/1.1 200 Connection established\n\n");
@@ -117,20 +128,16 @@ var server = net.createServer(function(c) {
 		}
 
 		if (client!==null) {
-			consoleLog(DEBUG_LEVEL.INFO, d);
+			consoleLog(DEBUG_LEVEL.FINEST, d);
 			client.write(data);
 		} else {
 			consoleLog(DEBUG_LEVEL.WARNING, "client is null !!!");
-			//consoleLog(DEBUG_LEVEL.INFO, d);
 		}
-		//consoleLog(DEBUG_LEVEL.INFO, 'data end');
 	});
 	c.on('error', function(err) {
 		consoleLog(DEBUG_LEVEL.ERROR, 'Error received');
 		console.log(err);
 	});
-	//c.write('hello');
-	//c.end();
 });
 
 server.on('error', function(e) {
