@@ -14,6 +14,7 @@
 
 var net = require('net');
 var stream = require('stream');
+// var process = require('');
 
 var DEBUG_LEVEL = {
 		ERROR:   {value:  0, name: "Error"},
@@ -22,6 +23,12 @@ var DEBUG_LEVEL = {
 		FINE:    {value: 30, name: "Fine" },
 		FINEST:  {value: 40, name: "Finest"}
 };
+
+var HTTP_METHODS = {
+		GET : true, PUT: true, HEAD : true, POST : true, DELETE : true, OPTIONS : true, TRACE : true, CONNECT: true
+};
+
+var CONNECT_CONST = 'CONNECT';
 
 var debug_level_use = 20;
 
@@ -43,6 +50,10 @@ var server = net.createServer(function(c) {
 		
 		consoleLog(DEBUG_LEVEL.FINE, 'server disconnected');
 	});
+	c.on('error', function(err) {
+		consoleLog(DEBUG_LEVEL.ERROR, 'Error received');
+		console.log(err);
+	});
 
 	c.on('data', function(data) {
 		consoleLog(DEBUG_LEVEL.FINEST, 'data received');
@@ -57,9 +68,9 @@ var server = net.createServer(function(c) {
 			
 			var path = null;
 			var replacedData;
-			var httpCommand = d.substring(0, indexOfSpace+1);
+			var httpCommand = d.substring(0, indexOfSpace);
 			
-			if (httpCommand == "GET " || httpCommand == "POST " || httpCommand == "CONNECT ") {
+			if (HTTP_METHODS[httpCommand]) {
 				var headers = d.split('\n', 2);
 				var tokens = headers[0].split(" ");
 				var pathIndex = tokens[1].indexOf('/',9);
@@ -93,7 +104,7 @@ var server = net.createServer(function(c) {
 				if (protocol == null)
 					protocol = "http://";
 
-				if (httpCommand != "CONNECT ") {
+				if (httpCommand != CONNECT_CONST) {
 					consoleLog(DEBUG_LEVEL.FINE, "host ="+host+" port = "+port+" protocol = "+protocol+" path ="+path);
 					replacedData = tokens[0];
 					replacedData = replacedData + ' '+path+' '+tokens[2]+'\n'+data.slice(headers[0].length+1);
@@ -112,8 +123,13 @@ var server = net.createServer(function(c) {
 					 * and send ACK (in form of HTTP return status) back to the requesting client.
 					 * 
 					 */
-					if (httpCommand != "CONNECT ")
-						client.write(replacedData);
+					if (httpCommand != CONNECT_CONST) {
+						try {
+							client.write(replacedData);
+						} catch(err) {
+							consoleLog(DEBUG_LEVEL.ERROR, 'Write error to client. : '+err);
+						}
+					}
 					else
 						c.write("HTTP/1.1 200 Connection established\n\n");
 				});
@@ -130,15 +146,18 @@ var server = net.createServer(function(c) {
 
 		if (client!==null) {
 			consoleLog(DEBUG_LEVEL.FINEST, d);
-			client.write(data);
+			try {
+				client.write(data);
+			} catch (err) {
+				consoleLog(DEBUG_LEVEL.ERROR, 'Write error, closing connection: '+err);
+				client = null; 
+				c.end();
+			}
 		} else {
 			consoleLog(DEBUG_LEVEL.WARNING, "client is null !!!");
 		}
 	});
-	c.on('error', function(err) {
-		consoleLog(DEBUG_LEVEL.ERROR, 'Error received');
-		console.log(err);
-	});
+	
 });
 
 server.on('error', function(e) {
@@ -148,6 +167,11 @@ server.on('error', function(e) {
 			server.close();
 		},1000);
 	}
+});
+
+process.on('uncaughtException', function (err) {
+	  console.error('Handling uncaught exception: ' + err.stack);
+	  //console.log("Node NOT Exiting...");
 });
 
 server.listen(9090, function() {
